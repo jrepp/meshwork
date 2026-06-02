@@ -36,8 +36,8 @@ include-group = "lint"
 text = "MPL-2.0"
 
 [project.urls]
-Homepage = "https://github.com/MythicaAI/infra/libs/python/meshwork"
-Repository = "https://github.com/MythicaAI/infra"
+Homepage = "https://github.com/jrepp/meshwork"
+Repository = "https://github.com/jrepp/meshwork"
 
 [project.scripts]
 test = "scripts:test"
