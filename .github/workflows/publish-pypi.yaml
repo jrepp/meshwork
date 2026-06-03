@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: uv run lint
 
+      - name: Python conformance
+        run: uv run conform
+
       - name: Test
         run: uv run test
 

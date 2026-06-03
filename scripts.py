@@ -36,9 +36,14 @@ def typecheck() -> int:
     return run("mypy .")
 
 
+def conformance() -> int:
+    """Check Python source conformance."""
+    return run("python -m compileall -q meshwork tests scripts.py")
+
+
 def check() -> int:
-    """Run all checks (lint + typecheck + test)."""
-    return lint() or typecheck() or test()
+    """Run all checks (lint + conformance + test)."""
+    return lint() or conformance() or test()
 
 
 def fix() -> int:
@@ -80,6 +85,7 @@ def main():
         print("  lint      - Check code quality")
         print("  format    - Format code")
         print("  typecheck - Type check code")
+        print("  conform   - Check Python source conformance")
         print("  check     - Run all checks")
         print("  fix       - Fix auto-fixable issues")
         print("  clean     - Clean build artifacts")
@@ -94,6 +100,7 @@ def main():
         "lint": lint,
         "format": format_code,
         "typecheck": typecheck,
+        "conform": conformance,
         "check": check,
         "fix": fix,
         "clean": clean,

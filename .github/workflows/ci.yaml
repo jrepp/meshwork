@@ -9,15 +9,36 @@ on:
       - "**"
 
 jobs:
-  test:
+  actionlint:
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Lint workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@latest
+
+  test:
+    needs: actionlint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.12"
+          - "3.13"
+          - "3.14"
 
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -26,6 +47,9 @@ jobs:
 
       - name: Lint
         run: uv run lint
+
+      - name: Python conformance
+        run: uv run conform
 
       - name: Test
         run: uv run test
