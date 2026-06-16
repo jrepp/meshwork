@@ -43,7 +43,6 @@ Minimal Python example:
 
 ```python
 from meshwork import (
-    AutomationRequest,
     Message,
     ParameterSet,
     Progress,
@@ -63,12 +62,7 @@ def echo(request: EchoRequest, publisher: StreamPublisher) -> Message:
 
 
 echo_operation = operation("/echo", echo, EchoRequest, Message)
-request = AutomationRequest.from_params(
-    echo_operation.path,
-    EchoRequest(message="hello mesh"),
-)
-
-result = run_local(echo, EchoRequest(**request.data))
+result = run_local(echo_operation.provider, EchoRequest(message="hello mesh"))
 
 print(result.result.message)
 print([item.item_type for item in result.stream])

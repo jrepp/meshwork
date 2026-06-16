@@ -11,6 +11,7 @@ from meshwork import (
     LocalRunner,
     Message,
     ParameterSet,
+    Payload,
     ParameterSpec,
     StreamPublisher,
     StringParameterSpec,
@@ -160,6 +161,9 @@ def test_root_exports_complete_core_models() -> None:
 
 
 def test_root_exports_core_protocols() -> None:
+    payload: Payload = {"id": "1"}
+
+    assert payload == {"id": "1"}
     assert StreamPublisher is not None
     assert Transport is not None
 

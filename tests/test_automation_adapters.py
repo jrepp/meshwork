@@ -116,6 +116,20 @@ def test_rest_get(mock_requests):
     )
 
 
+def test_rest_get_without_token_does_not_emit_empty_authorization(mock_requests):
+    _, mock_get = mock_requests
+    mock_get.return_value.json.return_value = {"data": "test"}
+
+    adapter = RestAdapter()
+    result = adapter.get("http://test")
+
+    assert result == {"data": "test"}
+    mock_get.assert_called_with(
+        "http://test",
+        headers={"traceparent": None},
+    )
+
+
 def test_rest_post(mock_requests):
     mock_post, _ = mock_requests
     mock_post.return_value.json.return_value = {"id": "test"}

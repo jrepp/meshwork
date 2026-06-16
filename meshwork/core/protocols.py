@@ -1,11 +1,13 @@
 """Protocols that decouple Meshwork core execution from integrations."""
 
 from collections.abc import Awaitable, Callable
-from typing import Protocol
+from typing import Any, Protocol, TypeAlias
 
 from meshwork.core.jobs import AutomationRequest
 from meshwork.core.params import FileParameter
 from meshwork.core.streams import ProcessStreamItem
+
+Payload: TypeAlias = dict[str, Any]
 
 
 class StreamPublisher(Protocol):
@@ -37,10 +39,10 @@ class ResultStore(Protocol):
 class Transport(Protocol):
     """Message transport used to publish and listen for job payloads."""
 
-    async def publish(self, subject: str, payload: dict) -> None:
+    async def publish(self, subject: str, payload: Payload) -> None:
         """Publish a payload."""
 
     async def listen(
-        self, subject: str, callback: Callable[[dict], Awaitable[None]]
+        self, subject: str, callback: Callable[[Payload], Awaitable[None]]
     ) -> None:
         """Listen for payloads on a subject."""

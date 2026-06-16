@@ -7,15 +7,16 @@ from typing import Any, TypeAlias
 import nats
 import requests
 from nats.aio.client import Client as NatsClient
+from nats.aio.msg import Msg
 from nats.aio.subscription import Subscription
 
 from gcid import location
 from meshwork.automation.utils import format_exception
+from meshwork.core.protocols import Payload
 
 log = logging.getLogger(__name__)
 
 NATS_URL = os.environ.get("NATS_ENDPOINT", "nats://localhost:4222")
-Payload: TypeAlias = dict[str, Any]
 MessageCallback: TypeAlias = Callable[[Payload], Awaitable[None]]
 JsonResponse: TypeAlias = Any
 SUCCESS_STATUS_CODES = {200, 201}
@@ -103,7 +104,7 @@ class NatsAdapter:
         """ Listen to NATS """
         await self._connect()
 
-        async def message_handler(msg) -> None:
+        async def message_handler(msg: Msg) -> None:
             try:
                 payload = json.loads(msg.data.decode("utf-8"))
                 log.info(f"Received message on {subject}: {payload}")
@@ -162,7 +163,8 @@ class RestAdapter:
         content_type: str | None = None,
     ) -> dict[str, str | None]:
         result = headers.copy() if headers else {"traceparent": None}
-        result["Authorization"] = f"Bearer {token}"
+        if token:
+            result["Authorization"] = f"Bearer {token}"
         if content_type:
             result["Content-Type"] = content_type
         return result

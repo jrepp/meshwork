@@ -27,6 +27,7 @@ from meshwork.core.params import (
 )
 from meshwork.core.protocols import (
     FileResolver,
+    Payload,
     ResultStore,
     StreamPublisher,
     Transport,
@@ -66,6 +67,7 @@ __all__ = [
     "LocalRunner",
     "Message",
     "OutputFiles",
+    "Payload",
     "ParameterSet",
     "ParameterSpec",
     "ParameterSpecModel",
