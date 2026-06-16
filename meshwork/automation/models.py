@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from meshwork.models.params import (
     FileParameter,
@@ -25,6 +25,24 @@ class AutomationModel(BaseModel):
     interfaceModel: Callable[[], list[HoudiniParmTemplateSpecType]] | None = None
     hidden: bool = False
 
+    @property
+    def input_model(self) -> type[ParameterSet]:
+        """Snake-case alias for new code."""
+
+        return self.inputModel
+
+    @property
+    def output_model(self) -> type[ProcessStreamItem]:
+        """Snake-case alias for new code."""
+
+        return self.outputModel
+
+    @property
+    def interface_model(self) -> Callable[[], list[HoudiniParmTemplateSpecType]] | None:
+        """Snake-case alias for new code."""
+
+        return self.interfaceModel
+
 
 class AutomationRequest(BaseModel):
     """
@@ -39,7 +57,7 @@ class AutomationRequest(BaseModel):
     auth_token: str | None = None
     path: str
     data: dict
-    telemetry_context: dict | None = {}
+    telemetry_context: dict | None = Field(default_factory=dict)
     event_id: str | None = None
 
 
@@ -47,9 +65,9 @@ class BulkAutomationRequest(BaseModel):
     """Bulk automation-jobs in one requests"""
 
     is_bulk_processing: bool = True
-    requests: list[AutomationRequest] = []
+    requests: list[AutomationRequest] = Field(default_factory=list)
     event_id: str | None = None
-    telemetry_context: dict | None = {}
+    telemetry_context: dict | None = Field(default_factory=dict)
 
 
 class AutomationRequestResult(BaseModel):
@@ -63,7 +81,7 @@ class EventAutomationResponse(BaseModel):
 
     is_bulk_processing: bool = False
     processed: bool = False
-    request_result: list[AutomationRequestResult] = []
+    request_result: list[AutomationRequestResult] = Field(default_factory=list)
 
 
 class CropImageRequest(ParameterSet):

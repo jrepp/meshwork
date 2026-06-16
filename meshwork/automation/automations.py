@@ -102,9 +102,9 @@ def automation():
                 )
 
             if (
-                    "responder" in kwargs
-                    and kwargs["responder"] is not None
-                    and not isinstance(kwargs["responder"], ResultPublisher)
+                "responder" in kwargs
+                and kwargs["responder"] is not None
+                and not isinstance(kwargs["responder"], ResultPublisher)
             ):
                 raise TypeError(
                     "The 'responder' argument must be of type ResultPublisher"
@@ -126,7 +126,7 @@ def automation():
 
 
 def _find_decorated_models(
-        script_namespace: dict[str, Any],
+    script_namespace: dict[str, Any],
 ) -> tuple[ParameterSet | None, ProcessStreamItem | None]:
     """Find request and response models that have been decorated with the appropriate decorators."""
     request_model = None
@@ -151,7 +151,7 @@ def _find_operation(script_namespace: dict[str, Any]) -> Callable | None:
 
 
 def _find_script_interface(
-        script_namespace: dict[str, Any],
+    script_namespace: dict[str, Any],
 ) -> list[HoudiniParmTemplateSpecType] | None:
     """Find the script interface that has been decorated with @script_interface."""
     for _, obj in script_namespace.items():
@@ -163,7 +163,7 @@ def _find_script_interface(
 
 def _run_script_automation() -> Callable:
     def impl(
-            request: ScriptRequest = None, responder: ResultPublisher = None
+        request: ScriptRequest = None, responder: ResultPublisher = None
     ) -> ProcessStreamItem:
         # Prepare the environment to hold the script's namespace
         script_namespace = {}
@@ -206,7 +206,7 @@ def _run_script_automation() -> Callable:
 
 def _get_script_interface() -> Callable:
     def impl(
-            request: ScriptRequest = None, responder: ResultPublisher = None
+        request: ScriptRequest = None, responder: ResultPublisher = None
     ) -> ProcessStreamItem:
         script_namespace = {}
 
@@ -274,7 +274,7 @@ class ScriptJobDefResponse(ProcessStreamItem):
 
 def _get_script_job_def() -> Callable:
     def impl(
-            request: ScriptJobDefRequest = None, responder: ResultPublisher = None
+        request: ScriptJobDefRequest = None, responder: ResultPublisher = None
     ) -> ScriptJobDefResponse:
         script_namespace = {}
         awpy_file = request.awpy_file

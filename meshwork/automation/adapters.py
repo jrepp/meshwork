@@ -1,27 +1,31 @@
 import json
 import logging
 import os
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeAlias
 
 import nats
 import requests
+from nats.aio.client import Client as NatsClient
+from nats.aio.subscription import Subscription
 
 from gcid import location
 from meshwork.automation.utils import format_exception
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 log = logging.getLogger(__name__)
 
 NATS_URL = os.environ.get("NATS_ENDPOINT", "nats://localhost:4222")
+Payload: TypeAlias = dict[str, Any]
+MessageCallback: TypeAlias = Callable[[Payload], Awaitable[None]]
+JsonResponse: TypeAlias = Any
+SUCCESS_STATUS_CODES = {200, 201}
 
 
 class NatsAdapter:
     def __init__(self, nats_url: str = NATS_URL) -> None:
         self.nats_url = nats_url
-        self.listeners = {}
-        self.nc = None  # Single NATS client connection
+        self.listeners: dict[str, Subscription] = {}
+        self.nc: NatsClient | None = None
         self.env = os.getenv("MYTHICA_ENVIRONMENT", "debug")
         self.location = location.location()
 
@@ -48,10 +52,11 @@ class NatsAdapter:
         """Return a subject that is scoped to a scoped entity"""
         return f"{subject}.{self.env}.{self.location}.{entity}"
 
-    async def _internal_post(self, subject: str, data: dict) -> None:
+    async def _internal_post(self, subject: str, data: Payload) -> None:
         await self._connect()
-        p_data = data
+        p_data = data.copy()
         try:
+            assert self.nc is not None
             await self.nc.publish(subject, json.dumps(data).encode())
             # Remove encoded data from the log
             if p_data.get("encoded_data"):
@@ -65,20 +70,32 @@ class NatsAdapter:
             if not self.listeners:
                 await self._disconnect()
 
-    async def post(self, subject: str, data: dict) -> None:
+    async def publish(self, subject: str, payload: Payload) -> None:
+        """Publish payload to an environment/location-scoped subject."""
+
+        await self.post(subject, payload)
+
+    async def publish_to(self, subject: str, entity: str, payload: Payload) -> None:
+        """Publish payload to an environment/location/entity-scoped subject."""
+
+        await self.post_to(subject, entity, payload)
+
+    async def post(self, subject: str, data: Payload) -> None:
         """Post data to NATS on subject."""
         await self._internal_post(self._scoped_subject(subject), data)
 
-    async def post_to(self, subject: str, entity: str, data: dict) -> None:
+    async def post_to(self, subject: str, entity: str, data: Payload) -> None:
         await self._internal_post(self._scoped_subject_to(subject, entity), data)
 
-    async def listen(self, subject: str, callback: callable) -> None:
+    async def listen(self, subject: str, callback: MessageCallback) -> None:
         await self._internal_listen(self._scoped_subject(subject), callback)
 
-    async def listen_as(self, subject: str, entity: str, callback: callable) -> None:
+    async def listen_as(
+        self, subject: str, entity: str, callback: MessageCallback
+    ) -> None:
         await self._internal_listen(self._scoped_subject_to(subject, entity), callback)
 
-    async def _internal_listen(self, subject: str, callback: callable):
+    async def _internal_listen(self, subject: str, callback: MessageCallback) -> None:
         if subject in self.listeners:
             log.warning(f"NATS listener already active for subject {subject}")
             return
@@ -99,6 +116,7 @@ class NatsAdapter:
         try:
             # Wait for the response with a timeout (customize as necessary)
             log.debug("Setting up NATS response listener")
+            assert self.nc is not None
             listener = await self.nc.subscribe(
                 subject, queue="worker", cb=message_handler
             )
@@ -109,7 +127,17 @@ class NatsAdapter:
             log.error(
                 f"Error setting up listener for subject {subject}: {format_exception(e)}"
             )
-            raise e
+            raise
+
+    async def stop_listening(self, subject: str, entity: str | None = None) -> None:
+        """Stop listening for a scoped subject created by listen or listen_as."""
+
+        scoped_subject = (
+            self._scoped_subject_to(subject, entity)
+            if entity is not None
+            else self._scoped_subject(subject)
+        )
+        await self.unlisten(scoped_subject)
 
     async def unlisten(self, subject: str) -> None:
         """Shut down the listener for a specific subject."""
@@ -126,89 +154,86 @@ class NatsAdapter:
 
 
 class RestAdapter:
+    def _headers(
+        self,
+        headers: dict[str, str | None] | None = None,
+        *,
+        token: str | None = None,
+        content_type: str | None = None,
+    ) -> dict[str, str | None]:
+        result = headers.copy() if headers else {"traceparent": None}
+        result["Authorization"] = f"Bearer {token}"
+        if content_type:
+            result["Content-Type"] = content_type
+        return result
+
     def get(
-            self,
-            endpoint: str,
-            data: dict = None,
-            token: str = None,
-            headers: dict = None,
-    ) -> str | None:
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        token: str | None = None,
+        headers: dict[str, str | None] | None = None,
+    ) -> JsonResponse | None:
         """Get data from an endpoint."""
         data = data or {}
-        headers = headers or {"traceparent": None}
         log.debug(f"Getting from Endpoint: {endpoint} - {data}")
-        headers = headers.copy()
-        headers.update({"Authorization": "Bearer %s" % token})
         response = requests.get(
             endpoint,
-            headers=headers,
+            headers=self._headers(headers, token=token),
         )
-        if response.status_code in [200, 201]:
+        if response.status_code in SUCCESS_STATUS_CODES:
             log.debug(f"Endpoint Response: {response.status_code}")
             return response.json()
-        else:
-            log.error(
-                f"Failed to call job API: {endpoint} - {data} - {response.status_code}"
-            )
-            return None
+        log.error(
+            f"Failed to call job API: {endpoint} - {data} - {response.status_code}"
+        )
+        return None
 
     def post(
-            self,
-            endpoint: str,
-            json_data: Any,
-            token: str,
-            headers: dict = None,
-            query_params: dict = None,
-    ) -> str | None:
+        self,
+        endpoint: str,
+        json_data: Any,
+        token: str | None,
+        headers: dict[str, str | None] | None = None,
+        query_params: dict[str, Any] | None = None,
+    ) -> JsonResponse | None:
         """Post data to an endpoint synchronously."""
-        if headers:
-            headers = headers.copy()
-        else:
-            headers = {"traceparent": None}
         query_params = query_params or {}
         log.debug(f"posting[{endpoint}]: {json_data}; {headers=}")
-        headers.update(
-            {"Content-Type": "application/json", "Authorization": "Bearer %s" % token}
-        )
         response = requests.post(
             endpoint,
             json=json_data,
             params=query_params,
-            headers=headers,
+            headers=self._headers(
+                headers, token=token, content_type="application/json"
+            ),
         )
-        if response.status_code in [200, 201]:
+        if response.status_code in SUCCESS_STATUS_CODES:
             log.debug(f"Endpoint Response: {response.status_code}")
             return response.json()
-        else:
-            log.error(
-                f"Failed to call job API: {endpoint} - {json_data} - {response.status_code}"
-            )
-            return None
+        log.error(
+            f"Failed to call job API: {endpoint} - {json_data} - {response.status_code}"
+        )
+        return None
 
     def post_file(
-            self,
-            endpoint: str,
-            file_data: list,
-            token: str,
-            headers: dict = None
-    ) -> str | None:
+        self,
+        endpoint: str,
+        file_data: list[Any],
+        token: str | None,
+        headers: dict[str, str | None] | None = None,
+    ) -> JsonResponse | None:
         """Post file to an endpoint."""
-        if headers:
-            headers = headers.copy()
-        else:
-            headers = {"traceparent": None}
         log.debug(f"Sending file to Endpoint: {endpoint} - {file_data}")
-        headers.update({"Authorization": "Bearer %s" % token})
         response = requests.post(
             endpoint,
             files=file_data,
-            headers=headers,
+            headers=self._headers(headers, token=token),
         )
-        if response.status_code in [200, 201]:
+        if response.status_code in SUCCESS_STATUS_CODES:
             log.debug(f"Endpoint Response: {response.status_code}")
             return response.json()
-        else:
-            log.error(
-                f"Failed to call job API: {endpoint} - {file_data} - {response.status_code}"
-            )
-            return None
+        log.error(
+            f"Failed to call job API: {endpoint} - {file_data} - {response.status_code}"
+        )
+        return None

@@ -14,13 +14,13 @@ _AUDIENCE = "mythica_auth_token"
 
 
 def generate_token(
-        profile_id: str,
-        profile_email: str,
-        profile_email_validate_state: int,
-        profile_location: str,
-        environment: str,
-        roles: list[str] = None,
-        impersonated_by: str = None,
+    profile_id: str,
+    profile_email: str,
+    profile_email_validate_state: int,
+    profile_location: str,
+    environment: str,
+    roles: list[str] | None = None,
+    impersonated_by: str | None = None,
 ) -> str:
     """Generate a token from a profile and optional list of roles on the profile."""
     payload = {
@@ -53,5 +53,5 @@ def decode_token(encoded_jwt: str) -> SessionProfile:
         location=decoded_jwt.get("location", "none"),
         environment=decoded_jwt.get("env", meshwork_config().mythica_environment),
         auth_roles=decoded_jwt["roles"],
-        impersonated=False,
+        impersonated=bool(decoded_jwt.get("mpr", "")),
     )

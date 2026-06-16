@@ -2,7 +2,6 @@
 Asset API schema models
 """
 
-
 from gcid.gcid import asset_seq_to_id, org_seq_to_id, profile_seq_to_id
 from pydantic import BaseModel
 

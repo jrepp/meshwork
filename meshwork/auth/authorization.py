@@ -20,7 +20,6 @@ Profiles can have roles or have aliases that provide roles with special bindings
 
 """
 
-
 from pydantic import BaseModel
 
 from meshwork.auth.roles import role_to_alias, self_object_scope
