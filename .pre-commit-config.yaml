@@ -1,0 +1,32 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format-check
+        name: ruff format check
+        entry: uv run --group dev python scripts.py fmt-check
+        language: system
+        pass_filenames: false
+
+      - id: ruff-lint
+        name: ruff lint
+        entry: uv run --group dev python scripts.py lint
+        language: system
+        pass_filenames: false
+
+      - id: scoped-mypy
+        name: scoped mypy
+        entry: uv run --group dev python scripts.py typecheck
+        language: system
+        pass_filenames: false
+
+      - id: compileall
+        name: compileall
+        entry: uv run --group dev python scripts.py conform
+        language: system
+        pass_filenames: false
+
+      - id: pytest
+        name: pytest
+        entry: uv run --group dev python scripts.py test
+        language: system
+        pass_filenames: false

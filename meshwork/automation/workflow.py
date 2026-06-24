@@ -1,13 +1,9 @@
 import logging
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from meshwork.models.params import FileParameter
 
-# Set up logging
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 log = logging.getLogger(__name__)
 
 
@@ -19,8 +15,8 @@ class Node(WorkflowPart):
     id: str
     type: str
     data: dict
-    parents: list["Node"] = []
-    children: list["Node"] = []
+    parents: list["Node"] = Field(default_factory=list)
+    children: list["Node"] = Field(default_factory=list)
 
 
 class Edge(WorkflowPart):
@@ -32,8 +28,8 @@ class Edge(WorkflowPart):
 
 
 class Workflow(BaseModel):
-    nodes: dict[str, Node] = {}
-    edges: list[Edge] = []
+    nodes: dict[str, Node] = Field(default_factory=dict)
+    edges: list[Edge] = Field(default_factory=list)
 
     def get_start_nodes(self) -> list[Node]:
         """

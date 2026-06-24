@@ -1,4 +1,4 @@
-line-length = 79
+line-length = 88
 
 [lint]
 # 1. Enable flake8-bugbear (`B`) rules, in addition to the defaults.
@@ -16,5 +16,5 @@ unfixable = ["B"]
 "**/{tests,docs,tools,alembic}/*" = ["E402"]
 
 [format]
-# 5. Use single quotes in `ruff format`.
-quote-style = "single"
+# 5. Use double quotes in `ruff format`.
+quote-style = "double"

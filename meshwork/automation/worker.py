@@ -12,7 +12,6 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from pydantic import ValidationError
 
 from meshwork.automation.adapters import NatsAdapter, RestAdapter
-from meshwork.automation.automations import get_default_automations
 from meshwork.automation.models import (
     AutomationModel,
     AutomationRequest,
@@ -23,16 +22,10 @@ from meshwork.automation.models import (
 )
 from meshwork.automation.publishers import ResultPublisher, SlimPublisher
 from meshwork.automation.utils import error_handler, format_exception
-from meshwork.config import meshwork_config, update_headers_from_context
 from meshwork.models.params import ParameterSet
 from meshwork.models.streaming import Error, ProcessStreamItem, Progress
-from meshwork.runtime.alerts import AlertSeverity, send_alert
-from meshwork.runtime.params import resolve_params
+from meshwork.runtime.alerts import AlertSeverity
 
-# Set up logging
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 log = logging.getLogger(__name__)
 
 tracer = trace.get_tracer(__name__)
@@ -45,31 +38,64 @@ class CoordinatorException(Exception):
 
 
 class Worker:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        nats: NatsAdapter | None = None,
+        rest: RestAdapter | None = None,
+        publisher_factory: Callable | None = None,
+        slim_publisher_factory: Callable | None = None,
+        default_automations: (
+            list[AutomationModel] | Callable[[], list[AutomationModel]] | None
+        ) = None,
+        catalog_path: str | None = None,
+        api_base_uri_provider: Callable[[], str] | None = None,
+        headers_provider: Callable[[], dict] | None = None,
+        param_resolver: Callable | None = None,
+        alert_handler: Callable[[str, AlertSeverity], None] | None = None,
+        process_event_results: bool = False,
+        web_title: str = "Automation API",
+        web_description: str = "Automation API",
+    ) -> None:
         self.subject = None
         self.automations: dict[str, AutomationModel] = {}
-        self.nats = NatsAdapter()
-        self.rest = RestAdapter()
+        self.nats = nats or NatsAdapter()
+        self.rest = rest or RestAdapter()
+        self.publisher_factory = publisher_factory
+        self.slim_publisher_factory = slim_publisher_factory
+        self.api_base_uri_provider = api_base_uri_provider or (lambda: "")
+        self.headers_provider = headers_provider or dict
+        self.param_resolver = param_resolver
+        self.alert_handler = alert_handler or (lambda message, severity: None)
+        self.process_event_results = process_event_results
+        self.web_title = web_title
+        self.web_description = web_description
 
-        catalog_provider = AutomationModel(
-            path="/mythica/automations",
-            provider=self._get_catalog_provider(),
-            inputModel=ParameterSet,
-            outputModel=AutomationsResponse,
-            hidden=True,
-        )
+        autos = []
+        if default_automations:
+            autos = (
+                default_automations()
+                if callable(default_automations)
+                else list(default_automations)
+            )
 
-        autos = get_default_automations()
-        autos.append(catalog_provider)
+        if catalog_path:
+            catalog_provider = AutomationModel(
+                path=catalog_path,
+                provider=self._get_catalog_provider(),
+                inputModel=ParameterSet,
+                outputModel=AutomationsResponse,
+                hidden=True,
+            )
+            autos.append(catalog_provider)
         self._load_automations(autos)
 
     def _get_catalog_provider(
-            self,
+        self,
     ) -> Callable[[ParameterSet, ResultPublisher], AutomationsResponse]:
         doer = self
 
         def impl(
-                request: ParameterSet = None, responder: ResultPublisher = None
+            request: ParameterSet = None, responder: ResultPublisher = None
         ) -> AutomationsResponse:
             ret = {}
             for path, wk in doer.automations.items():
@@ -165,7 +191,8 @@ class Worker:
                 publisher = None
                 try:
                     with tempfile.TemporaryDirectory() as tmpdir:
-                        publisher = ResultPublisher(
+                        publisher_type = self.publisher_factory or ResultPublisher
+                        publisher = publisher_type(
                             auto_request, self.nats, self.rest, tmpdir
                         )
                         publisher.result(Progress(progress=0))
@@ -173,13 +200,13 @@ class Worker:
                         worker = doer.automations[auto_request.path]
                         inputs = worker.inputModel(**auto_request.data)
                         inputs.worker = self.subject
-                        api_url = meshwork_config().api_base_uri
-                        resolve_params(
-                            api_url,
-                            tmpdir,
-                            inputs,
-                            headers=update_headers_from_context(),
-                        )
+                        if self.param_resolver:
+                            self.param_resolver(
+                                self.api_base_uri_provider(),
+                                tmpdir,
+                                inputs,
+                                headers=self.headers_provider(),
+                            )
                         with tracer.start_as_current_span("job.execution") as job_span:
                             job_span.set_attribute(
                                 "job.started", datetime.now(timezone.utc).isoformat()
@@ -213,12 +240,12 @@ class Worker:
             headers: dict = json_payload.get("telemetry_context", {})
             # Init telemetry_context before root trace
             telemetry_context = TraceContextTextMapPropagator().extract(carrier=headers)
-            api_url = meshwork_config().api_base_uri
+            api_url = self.api_base_uri_provider()
             auth_token = None
             event_id = json_payload.get("event_id", None)
 
             with tracer.start_as_current_span(
-                    "coordinator", context=telemetry_context
+                "coordinator", context=telemetry_context
             ) as span:
                 job_res = EventAutomationResponse()
                 try:
@@ -260,29 +287,30 @@ class Worker:
                     )
                     log.exception(ex)
                     span.record_exception(ex)
-                    send_alert(
+                    self.alert_handler(
                         f"Event automation failed for event_id: {event_id}",
                         AlertSeverity.CRITICAL,
                     )
                     return
                 finally:
-                    await self.process_items_result(
-                        job_res=job_res,
-                        api_url=api_url,
-                        auth_token=auth_token,
-                        event_id=event_id,
-                    )
+                    if self.process_event_results:
+                        await self.process_items_result(
+                            job_res=job_res,
+                            api_url=api_url,
+                            auth_token=auth_token,
+                            event_id=event_id,
+                        )
 
         return coordinator
 
     async def process_items_result(
-            self,
-            job_res: EventAutomationResponse,
-            api_url: str,
-            auth_token: str,
-            event_id: str | None = None,
+        self,
+        job_res: EventAutomationResponse,
+        api_url: str,
+        auth_token: str,
+        event_id: str | None = None,
     ) -> None:
-        updated_headers = update_headers_from_context()
+        updated_headers = self.headers_provider()
 
         success = True
         if event_id:
@@ -294,8 +322,8 @@ class Worker:
                 elif item.get("item_type", "") == "error":
                     success = False
                 elif (
-                        item.get("item_type", "") == "job_def"
-                        and item.get("job_def_id") is None
+                    item.get("item_type", "") == "job_def"
+                    and item.get("job_def_id") is None
                 ):
                     success = False
                 elif item.get("item_type", "") == "job_defs":
@@ -305,8 +333,8 @@ class Worker:
                         if job_definition.get("job_def_id") is None:
                             success = False
                 elif (
-                        item.get("item_type", "") == "cropped_image"
-                        and item.get("file_id") is None
+                    item.get("item_type", "") == "cropped_image"
+                    and item.get("file_id") is None
                 ):
                     success = False
 
@@ -330,7 +358,7 @@ class Worker:
         """
         Start a FastAPI app dynamically based on the workers list.
         """
-        app = FastAPI(title="Automation API", description="Mythica Automation API")
+        app = FastAPI(title=self.web_title, description=self.web_description)
 
         @app.options("/")
         async def preflight():
@@ -393,9 +421,12 @@ class Worker:
             # Execute the worker's provider function
             try:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    api_url = meshwork_config().api_base_uri
-                    resolve_params(api_url, tmpdir, input_data)
-                    publisher = SlimPublisher(
+                    if self.param_resolver:
+                        self.param_resolver(
+                            self.api_base_uri_provider(), tmpdir, input_data
+                        )
+                    slim_publisher_type = self.slim_publisher_factory or SlimPublisher
+                    publisher = slim_publisher_type(
                         request=auto_request, rest=self.rest, directory=tmpdir
                     )
                     result = automation.provider(input_data, publisher)
@@ -406,9 +437,7 @@ class Worker:
                 return JSONResponse(
                     content={
                         "correlation": auto_request.correlation,
-                        "result": {
-                            "error": f"Automation failed: {str(e)}"
-                        },
+                        "result": {"error": f"Automation failed: {str(e)}"},
                     },
                     status_code=500,
                     headers=headers,

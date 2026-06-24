@@ -7,10 +7,10 @@ name = "meshwork"
 version = "0.1.2"
 description = "Library for the propagation of distributed parameterized jobs and their streams"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 keywords = [ "distributed-computing", "job-scheduling", "streaming", "microservices",]
-classifiers = [ "Development Status :: 3 - Alpha", "Intended Audience :: Developers", "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12",]
-dependencies = [ "pydantic>=2.10.6", "pydantic-settings>=2.7.1", "typing-extensions>=4.12.2", "python-json-logger>=3.2.1", "base58>=2.1.1", "tzdata>=2025.1", "cryptography>=44.0.1", "requests>=2.32.3", "aiohttp>=3.11.12", "nats-py>=2.9.0", "gcid>=0.1.0", "pyjwt>=2.10.1", "fastapi>=0.115.8", "uvicorn>=0.34.0", "opentelemetry-api>=1.30.0", "opentelemetry-sdk>=1.30.0", "opentelemetry-exporter-otlp>=1.30.0",]
+classifiers = [ "Development Status :: 3 - Alpha", "Intended Audience :: Developers", "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.14",]
+dependencies = [ "pydantic>=2.10.6",]
 [[project.authors]]
 name = "Jacob Repp"
 email = "jacob@mythica.ai"
@@ -25,12 +25,27 @@ email = "pedro@mythica.ai"
 
 [dependency-groups]
 test = [ "pytest>=8.3.4", "pytest-asyncio>=0.25.3", "pytest-cov>=6.0.0", "pytest-timeout>=2.3.1", "httpx>=0.28.1",]
-lint = [ "ruff>=0.8.0", "mypy>=1.13.0",]
+lint = [ "mypy>=1.13.0", "pre-commit>=4.0.0", "ruff>=0.8.0",]
+compat = [ "pydantic-settings>=2.7.1", "typing-extensions>=4.12.2", "python-json-logger>=3.2.1", "base58>=2.1.1", "tzdata>=2025.1", "cryptography>=44.0.1", "requests>=2.32.3", "aiohttp>=3.11.12", "nats-py>=2.9.0", "gcid>=0.1.0", "pyjwt>=2.10.1", "fastapi>=0.115.8", "uvicorn>=0.34.0", "opentelemetry-api>=1.30.0", "opentelemetry-sdk>=1.30.0", "opentelemetry-exporter-otlp>=1.30.0",]
+integration = [ "testcontainers>=4.12.0",]
 [[dependency-groups.dev]]
 include-group = "test"
 
 [[dependency-groups.dev]]
 include-group = "lint"
+
+[[dependency-groups.dev]]
+include-group = "compat"
+
+[[dependency-groups.dev]]
+include-group = "integration"
+
+[project.optional-dependencies]
+nats = [ "gcid>=0.1.0", "nats-py>=2.9.0",]
+http = [ "aiohttp>=3.11.12", "fastapi>=0.115.8", "requests>=2.32.3", "uvicorn>=0.34.0",]
+telemetry = [ "opentelemetry-api>=1.30.0", "opentelemetry-sdk>=1.30.0", "opentelemetry-exporter-otlp>=1.30.0", "python-json-logger>=3.2.1",]
+auth = [ "base58>=2.1.1", "cryptography>=44.0.1", "gcid>=0.1.0", "pyjwt>=2.10.1",]
+mythica = [ "base58>=2.1.1", "cryptography>=44.0.1", "fastapi>=0.115.8", "gcid>=0.1.0", "nats-py>=2.9.0", "opentelemetry-api>=1.30.0", "opentelemetry-exporter-otlp>=1.30.0", "opentelemetry-sdk>=1.30.0", "pydantic-settings>=2.7.1", "pyjwt>=2.10.1", "python-json-logger>=3.2.1", "requests>=2.32.3", "tzdata>=2025.1", "uvicorn>=0.34.0",]
 
 [project.license]
 text = "MPL-2.0"
@@ -47,13 +62,13 @@ typecheck = "scripts:typecheck"
 conform = "scripts:conformance"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py314"
 line-length = 88
 select = [ "E", "W", "F", "I", "B", "C4", "UP",]
 ignore = [ "E501",]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -63,10 +78,6 @@ strict_optional = true
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
-
-[tool.pytest.ini_options]
-addopts = "-v --cov=meshwork --cov-report=term-missing"
-testpaths = [ "tests",]
 
 [tool.coverage.run]
 source = [ "meshwork",]

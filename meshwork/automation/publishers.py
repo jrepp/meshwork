@@ -18,9 +18,6 @@ from meshwork.models.streaming import (
 
 NATS_FILE_CHUNK_SIZE = 64 * 1024
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 log = logging.getLogger(__name__)
 
 
@@ -229,17 +226,17 @@ class ResultPublisher:
 
 class SlimPublisher(ResultPublisher):
     def __init__(
-        myself, request: AutomationRequest, rest: RestAdapter, directory: str
+        self, request: AutomationRequest, rest: RestAdapter, directory: str
     ) -> None:
-        myself.rest = rest
-        myself.directory = directory
-        myself.request = request
+        self.rest = rest
+        self.directory = directory
+        self.request = request
 
-    def result(myself, item: ProcessStreamItem, complete: bool = False):
-        item.process_guid = myself.request.process_guid
-        item.correlation = myself.request.correlation
+    def result(self, item: ProcessStreamItem, complete: bool = False):
+        item.process_guid = self.request.process_guid
+        item.correlation = self.request.correlation
         item.job_id = ""
 
         # Upload any references to local data
-        myself._publish_local_data(item, meshwork_config().api_base_uri)
+        self._publish_local_data(item, meshwork_config().api_base_uri)
         log.info(f"Job {'Result' if not complete else 'Complete'} -> {item}")

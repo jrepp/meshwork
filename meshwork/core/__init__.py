@@ -1,43 +1,47 @@
-"""Meshwork public package exports."""
+"""Stable public API for Meshwork's reusable core."""
 
-from meshwork.core import (
+from meshwork.core.jobs import (
     AutomationModel,
     AutomationRequest,
     AutomationRequestResult,
     AutomationsResponse,
-    BoolParameterSpec,
     BulkAutomationRequest,
-    Error,
+    EventAutomationResponse,
+    operation,
+)
+from meshwork.core.local import LocalExecutionResult, LocalRunner, run_local
+from meshwork.core.params import (
+    BoolParameterSpec,
     EnumParameterSpec,
     EnumValueSpec,
-    Event,
-    EventAutomationResponse,
-    FileContentChunk,
     FileParameter,
     FileParameterSpec,
-    FileResolver,
     FloatParameterSpec,
     IntParameterSpec,
-    JobDefinition,
-    LocalExecutionResult,
-    LocalRunner,
-    Message,
-    OutputFiles,
-    Payload,
     ParameterSet,
     ParameterSpec,
     ParameterSpecModel,
-    ProcessStreamItem,
-    Progress,
     RampParameterSpec,
     RampPointSpec,
-    ResultStore,
     StringParameterSpec,
-    StreamItem,
+)
+from meshwork.core.protocols import (
+    FileResolver,
+    Payload,
+    ResultStore,
     StreamPublisher,
     Transport,
-    operation,
-    run_local,
+)
+from meshwork.core.streams import (
+    Error,
+    Event,
+    FileContentChunk,
+    JobDefinition,
+    Message,
+    OutputFiles,
+    ProcessStreamItem,
+    Progress,
+    StreamItem,
 )
 
 __all__ = [
@@ -54,8 +58,8 @@ __all__ = [
     "EventAutomationResponse",
     "FileContentChunk",
     "FileParameter",
-    "FileParameterSpec",
     "FileResolver",
+    "FileParameterSpec",
     "FloatParameterSpec",
     "IntParameterSpec",
     "JobDefinition",

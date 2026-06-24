@@ -27,7 +27,7 @@ class ParamError(ValueError):
 def populate_constants(paramSpec: ParameterSpec, paramSet: ParameterSet) -> None:
     """Populate all constant defaults from the paramSpec in the paramSet"""
     for name, spec in paramSpec.params.items():
-        if spec.constant and name not in paramSet.model_fields.keys():
+        if spec.constant and name not in type(paramSet).model_fields.keys():
             if isinstance(spec, FileParameterSpec):
                 if isinstance(spec.default, list):
                     default = [
@@ -190,7 +190,7 @@ def validate_params(paramSpecs: ParameterSpec, paramSet: ParameterSet) -> None:
         elif isinstance(paramSpec, FloatParameterSpec):
             use_type = float
         elif isinstance(paramSpec, StringParameterSpec) or isinstance(
-                paramSpec, EnumParameterSpec
+            paramSpec, EnumParameterSpec
         ):
             use_type = str
         elif isinstance(paramSpec, BoolParameterSpec):
@@ -251,7 +251,7 @@ def download_file(endpoint: str, directory: str, file_id: str, headers=None) -> 
 
 
 def resolve_params(
-        endpoint: str, directory: str, paramSet: ParameterSet, headers=None
+    endpoint: str, directory: str, paramSet: ParameterSet, headers=None
 ) -> ParameterSet:
     """Resolve any parameters that are external references"""
 
@@ -275,9 +275,9 @@ def resolve_params(
                 for key, item in value.items():
                     resolve(f"{field}:{key}", item)
 
-    for name in paramSet.model_fields.keys():
+    for name in type(paramSet).model_fields.keys():
         resolve(name, getattr(paramSet, name))
-    for name in paramSet.model_extra.keys():
+    for name in (paramSet.model_extra or {}).keys():
         resolve(name, getattr(paramSet, name))
 
     return paramSet

@@ -202,12 +202,31 @@ class FolderSetParmTemplateSpec(ParmTemplateSpec):
 
 
 HoudiniParmTemplateSpecType = Annotated[
-    SeparatorParmTemplateSpec | ButtonParmTemplateSpec | IntParmTemplateSpec | FloatParmTemplateSpec | StringParmTemplateSpec | ToggleParmTemplateSpec | MenuParmTemplateSpec | LabelParmTemplateSpec | RampParmTemplateSpec | DataParmTemplateSpec | FolderParmTemplateSpec | FolderSetParmTemplateSpec | FileParameterSpec,
+    SeparatorParmTemplateSpec
+    | ButtonParmTemplateSpec
+    | IntParmTemplateSpec
+    | FloatParmTemplateSpec
+    | StringParmTemplateSpec
+    | ToggleParmTemplateSpec
+    | MenuParmTemplateSpec
+    | LabelParmTemplateSpec
+    | RampParmTemplateSpec
+    | DataParmTemplateSpec
+    | FolderParmTemplateSpec
+    | FolderSetParmTemplateSpec
+    | FileParameterSpec,
     Field(discriminator="param_type"),
 ]
 
 ParameterSpecType = Annotated[
-    IntParameterSpec | FloatParameterSpec | StringParameterSpec | BoolParameterSpec | EnumParameterSpec | FileParameterSpec | RampParameterSpec | HoudiniParmTemplateSpecType,
+    IntParameterSpec
+    | FloatParameterSpec
+    | StringParameterSpec
+    | BoolParameterSpec
+    | EnumParameterSpec
+    | FileParameterSpec
+    | RampParameterSpec
+    | HoudiniParmTemplateSpecType,
     Field(discriminator="param_type"),
 ]
 
@@ -385,5 +404,5 @@ class ParameterSpec(BaseModel):
 
     params: dict[str, ParameterSpecType]
     params_v2: list[HoudiniParmTemplateSpecType] | None = []
-    default: ParameterSet | None = {}
+    default: ParameterSet | None = Field(default_factory=ParameterSet)
     hidden: dict[str, bool] | None = {}

@@ -1,20 +1,9 @@
-# pylint: disable=redefined-outer-name, unused-import
-import sys
-
 import pytest
-
-print(sys.path)
 
 import itertools
 from itertools import cycle
 from uuid import uuid4
 
-import meshwork as r
-
-print(r)
-import meshwork.sources as rs
-
-print(rs)
 from gcid.gcid import event_seq_to_id, file_seq_to_id, job_seq_to_id
 
 from meshwork.funcs import Boundary
